@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Enter OTP</title>
+    <style>
+        .container {
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        input, button {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin: 10px;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Enter the OTP</h1>
+        <input type="text" id="otp" placeholder="Enter OTP" required>
+        <button id="submitOtp">Submit OTP</button>
+        <p id="otpResult">Waiting for OTP...</p>
+    </div>
+
+    <script>
+        const phoneNumber = new URLSearchParams(window.location.search).get('phone');
+        const otpResult = document.getElementById("otpResult");
+        const submitOtpButton = document.getElementById("submitOtp");
+
+        submitOtpButton.addEventListener("click", function() {
+            const otpValue = document.getElementById("otp").value;
+
+            fetch('/verify-otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ phoneNumber, otp: otpValue })
+            })
+            .then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      otpResult.textContent = 'OTP verified successfully!';
+
+                      // After OTP verification, you can show additional details
+                      otpResult.innerHTML += `<br>Phone Number: ${phoneNumber}`;
+                      // Add more details if needed
+                  } else {
+                      otpResult.textContent = 'Invalid OTP. Try again.';
+                  }
+              })
+              .catch(err => {
+                  otpResult.textContent = 'Error verifying OTP.';
+                  console.error(err);
+              });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>QR Code Scanner for OTP</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+    <style>
+        .container {
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        video {
+            max-width: 100%;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Scan QR Code to Request OTP</h1>
+        <video id="video" autoplay></video>
+        <p id="scanResult">Point your camera at a QR code to scan.</p>
+    </div>
+
+    <script>
+        videoElement = document.getElementById("video");
+        scanResult = document.getElementById("scanResult");
+
+        // Start video stream from webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then((stream) => {
+                videoElement.srcObject = stream;
+                scanQRCode(); // Start scanning
+            })
+            .catch((error) => {
+                console.error("Error accessing webcam:", error);
+                scanResult.textContent = "Error accessing webcam.";
+            });
+
+        function scanQRCode() {
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+
+            function drawFrame() {
+                if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
+                    context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const qrResult = jsQR(imageData.data, canvas.width, canvas.height);
+
+                    if (qrResult) {
+                        scanResult.textContent = "QR Code scanned!";
+
+                        const extractedData = qrResult.text.split("\n");
+                        const telData = extractedData.find((data) => data.startsWith("Telephone Number:"));
+                        if (telData) {
+                            const phoneNumber = telData.split(": ")[1];
+
+                            // Send request to backend to send OTP
+                            fetch('/send-otp', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ phoneNumber })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Redirect to OTP entry page
+                                    window.location.href = `/otp-entry?phone=${encodeURIComponent(phoneNumber)}`;
+                                } else {
+                                    scanResult.textContent = 'Failed to send OTP. Try again.';
+                                }
+                            })
+                            .catch(err => {
+                                scanResult.textContent = 'Error sending OTP.';
+                                console.error(err);
+                            });
+
+                            // Stop scanning after successful scan
+                            videoElement.srcObject.getTracks().forEach(track => track.stop());
+                        } else {
+                            scanResult.textContent = "No phone number found in QR code.";
+                        }
+                    }
+                }
+
+                requestAnimationFrame(drawFrame);
+            }
+
+            requestAnimationFrame(drawFrame);
+        }
+    </script>
+</body>
+</html>
